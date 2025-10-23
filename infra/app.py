@@ -6,7 +6,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import aws_cdk as cdk
-from stacks.genaiid_agentcore_stack import GenAIIDAgentCoreStack
+from stacks.genaiid_agentcore_stack import GenAIIDAgentCoreStarterPackStack
 from utils.config_manager import ConfigManager
 
 config_manager = ConfigManager("config.yaml")
@@ -16,7 +16,7 @@ props = config_manager.get_props()
 
 app = cdk.App()
 
-genaiid_stack = GenAIIDAgentCoreStack(
+genaiid_stack = GenAIIDAgentCoreStarterPackStack(
     app,
     props,
     # If you don't specify 'env', this stack will be environment-agnostic.

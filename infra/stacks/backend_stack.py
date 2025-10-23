@@ -2,6 +2,7 @@ import os
 import sys
 
 from aws_cdk import (
+    Aws,
     CfnOutput,
     CfnParameter,
     CustomResource,
@@ -11,22 +12,33 @@ from aws_cdk import (
 )
 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
 from aws_cdk import aws_codebuild as codebuild
+from aws_cdk import aws_cognito as cognito
 from aws_cdk import aws_ecr as ecr
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_s3_assets as s3_assets
+from aws_cdk import aws_ssm as ssm
 from constructs import Construct
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "utils"))
 from agentcore_role import AgentCoreRole
 
 
-class BackendStack(NestedStack):
+class GASPBackendStack(NestedStack):
     def __init__(
-        self, scope: Construct, construct_id: str, config: dict, **kwargs
+        self,
+        scope: Construct,
+        construct_id: str,
+        config: dict,
+        **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # Create Cognito User Pool first
+        self.create_cognito_user_pool(config)
+
+        # Store Cognito config in SSM for frontend stack
+        self.create_cognito_ssm_parameters(config)
         pattern = config.get("backend", {}).get("pattern", "strands-single-agent")
 
         # Parameters
@@ -213,23 +225,33 @@ class BackendStack(NestedStack):
         # Create AgentCore execution role
         agent_role = AgentCoreRole(self, "AgentCoreRole")
 
-        # Create AgentCore Runtime
-        agent_runtime = bedrockagentcore.CfnRuntime(
-            self,
-            "AgentRuntime",
-            agent_runtime_name=f"{config['stack_name_base'].replace('-', '_')}_{agent_name.value_as_string}",
-            agent_runtime_artifact=bedrockagentcore.CfnRuntime.AgentRuntimeArtifactProperty(
+        # Create AgentCore Runtime with JWT authorizer
+        runtime_kwargs = {
+            "agent_runtime_name": f"{config['stack_name_base'].replace('-', '_')}_{agent_name.value_as_string}",
+            "agent_runtime_artifact": bedrockagentcore.CfnRuntime.AgentRuntimeArtifactProperty(
                 container_configuration=bedrockagentcore.CfnRuntime.ContainerConfigurationProperty(
                     container_uri=f"{ecr_repository.repository_uri}:{image_tag.value_as_string}"
                 )
             ),
-            network_configuration=bedrockagentcore.CfnRuntime.NetworkConfigurationProperty(
+            "network_configuration": bedrockagentcore.CfnRuntime.NetworkConfigurationProperty(
                 network_mode=network_mode.value_as_string
             ),
-            protocol_configuration="HTTP",
-            role_arn=agent_role.role_arn,
-            description=f"{pattern} agent runtime for {config['stack_name_base']}",
-            environment_variables={"AWS_DEFAULT_REGION": self.region},
+            "protocol_configuration": "HTTP",
+            "role_arn": agent_role.role_arn,
+            "description": f"{pattern} agent runtime for {config['stack_name_base']}",
+            "environment_variables": {"AWS_DEFAULT_REGION": self.region},
+        }
+
+        # Add JWT authorizer with Cognito configuration
+        runtime_kwargs["authorizer_configuration"] = {
+            "customJwtAuthorizer": {
+                "discoveryUrl": f"https://cognito-idp.{self.region}.amazonaws.com/{self.user_pool.user_pool_id}/.well-known/openid-configuration",
+                "allowedClients": [self.user_pool_client.user_pool_client_id],
+            }
+        }
+
+        agent_runtime = bedrockagentcore.CfnRuntime(
+            self, "AgentRuntime", **runtime_kwargs
         )
 
         agent_runtime.node.add_dependency(trigger_build)
@@ -247,6 +269,7 @@ class BackendStack(NestedStack):
             "AgentRuntimeArn",
             description="ARN of the created agent runtime",
             value=agent_runtime.attr_agent_runtime_arn,
+            export_name=f"{config['stack_name_base']}-AgentRuntimeArn",
         )
 
         CfnOutput(
@@ -254,4 +277,102 @@ class BackendStack(NestedStack):
             "AgentRoleArn",
             description="ARN of the agent execution role",
             value=agent_role.role_arn,
+        )
+
+        # Store runtime ARN for parent stack access
+        self.runtime_arn = agent_runtime.attr_agent_runtime_arn
+
+        # Store runtime ARN in SSM for frontend stack
+        ssm.StringParameter(
+            self,
+            "RuntimeArnParam",
+            parameter_name=f"/{config['stack_name_base']}/runtime-arn",
+            string_value=self.runtime_arn,
+        )
+
+    def create_cognito_user_pool(self, config: dict):
+        """Create Cognito User Pool for authentication."""
+        from aws_cdk import Aws
+
+        self.user_pool = cognito.UserPool(
+            self,
+            "UserPool",
+            user_pool_name=f"{config['stack_name_base']}-user-pool",
+            sign_in_aliases=cognito.SignInAliases(username=True, email=True),
+            auto_verify=cognito.AutoVerifiedAttrs(email=True),
+            password_policy=cognito.PasswordPolicy(
+                min_length=8,
+                require_lowercase=True,
+                require_uppercase=True,
+                require_digits=True,
+                require_symbols=True,
+            ),
+            account_recovery=cognito.AccountRecovery.EMAIL_ONLY,
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
+        self.user_pool_client = cognito.UserPoolClient(
+            self,
+            "UserPoolClient",
+            user_pool=self.user_pool,
+            user_pool_client_name=f"{config['stack_name_base']}-client",
+            generate_secret=False,
+            auth_flows=cognito.AuthFlow(
+                user_password=True,
+                user_srp=True,
+            ),
+            o_auth=cognito.OAuthSettings(
+                flows=cognito.OAuthFlows(authorization_code_grant=True),
+                scopes=[
+                    cognito.OAuthScope.OPENID,
+                    cognito.OAuthScope.EMAIL,
+                    cognito.OAuthScope.PROFILE,
+                ],
+                callback_urls=[
+                    "http://localhost:5173",
+                    "https://localhost:5173",
+                ],
+            ),
+            prevent_user_existence_errors=True,
+        )
+
+        self.user_pool_domain = cognito.UserPoolDomain(
+            self,
+            "UserPoolDomain",
+            user_pool=self.user_pool,
+            cognito_domain=cognito.CognitoDomainOptions(
+                domain_prefix=f"{config['stack_name_base']}-{Aws.ACCOUNT_ID}-{Aws.REGION}"
+            ),
+        )
+
+    def create_cognito_ssm_parameters(self, config: dict):
+        """Store Cognito configuration in SSM Parameter Store."""
+        ssm.StringParameter(
+            self,
+            "CognitoUserPoolIdParam",
+            parameter_name=f"/{config['stack_name_base']}/cognito-user-pool-id",
+            string_value=self.user_pool.user_pool_id,
+        )
+
+        ssm.StringParameter(
+            self,
+            "CognitoUserPoolClientIdParam",
+            parameter_name=f"/{config['stack_name_base']}/cognito-user-pool-client-id",
+            string_value=self.user_pool_client.user_pool_client_id,
+        )
+
+        ssm.StringParameter(
+            self,
+            "CognitoDomainParam",
+            parameter_name=f"/{config['stack_name_base']}/cognito-domain",
+            string_value=f"{self.user_pool_domain.domain_name}.auth.{Aws.REGION}.amazoncognito.com",
+        )
+
+    def read_cognito_config_from_ssm(self, config: dict):
+        """Read Cognito configuration from SSM Parameter Store."""
+        self.user_pool_id = ssm.StringParameter.value_for_string_parameter(
+            self, f"/{config['stack_name_base']}/cognito-user-pool-id"
+        )
+        self.user_pool_client_id = ssm.StringParameter.value_for_string_parameter(
+            self, f"/{config['stack_name_base']}/cognito-user-pool-client-id"
         )

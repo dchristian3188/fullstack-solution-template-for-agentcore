@@ -4,6 +4,7 @@ import { StatusIndicator } from '@cloudscape-design/components';
 import { Mode } from '@cloudscape-design/global-styles';
 import { Amplify } from 'aws-amplify';
 import StorageHelper from '../common/helpers/storage-helper';
+import { setAgentConfig } from '../services/agentCoreService';
 import { APP_NAME } from '../common/constants';
 import App from '../app';
 import '@aws-amplify/ui-react/styles.css';
@@ -29,6 +30,11 @@ const AppConfigured = () => {
         const awsExports = await result.json();
 
         Amplify.configure(awsExports);
+
+        // Configure AgentCore service with runtime ARN
+        if (awsExports.AgentCore?.runtimeArn) {
+          setAgentConfig(awsExports.AgentCore.runtimeArn, awsExports.AgentCore.region);
+        }
 
         setConfig(awsExports);
       } catch (e) {

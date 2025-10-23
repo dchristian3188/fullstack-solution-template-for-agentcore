@@ -15,13 +15,13 @@ from aws_cdk import (
 )
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudfront_origins as origins
-from aws_cdk import aws_cognito as cognito
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_s3_deployment as s3deploy
+from aws_cdk import aws_ssm as ssm
 
 
-class GenAIIDAgentCoreFrontendStack(NestedStack):
+class GASPFrontendStack(NestedStack):
     def __init__(
         self,
         scope,
@@ -35,8 +35,8 @@ class GenAIIDAgentCoreFrontendStack(NestedStack):
 
         self.fe_stack_name = construct_id
 
-        # Create Cognito User Pool
-        self.create_cognito_user_pool()
+        # Read configuration from SSM (created by backend stack)
+        self.read_config_from_ssm()
 
         # Create S3 bucket for static website hosting
         self.create_website_bucket()
@@ -49,61 +49,6 @@ class GenAIIDAgentCoreFrontendStack(NestedStack):
 
         # Output important values
         self.create_outputs()
-
-    def create_cognito_user_pool(self):
-        """Create Cognito User Pool for authentication."""
-        self.user_pool = cognito.UserPool(
-            self,
-            f"{self.fe_stack_name}-user-pool",
-            user_pool_name=f"{self.props['stack_name_base']}-user-pool",
-            sign_in_aliases=cognito.SignInAliases(username=True, email=True),
-            auto_verify=cognito.AutoVerifiedAttrs(email=True),
-            password_policy=cognito.PasswordPolicy(
-                min_length=8,
-                require_lowercase=True,
-                require_uppercase=True,
-                require_digits=True,
-                require_symbols=True,
-            ),
-            account_recovery=cognito.AccountRecovery.EMAIL_ONLY,
-            removal_policy=RemovalPolicy.DESTROY,
-        )
-
-        # Create User Pool Client
-        self.user_pool_client = cognito.UserPoolClient(
-            self,
-            f"{self.fe_stack_name}-user-pool-client",
-            user_pool=self.user_pool,
-            user_pool_client_name=f"{self.props['stack_name_base']}-client",
-            generate_secret=False,
-            auth_flows=cognito.AuthFlow(
-                user_password=True,
-                user_srp=True,
-            ),
-            o_auth=cognito.OAuthSettings(
-                flows=cognito.OAuthFlows(authorization_code_grant=True),
-                scopes=[
-                    cognito.OAuthScope.OPENID,
-                    cognito.OAuthScope.EMAIL,
-                    cognito.OAuthScope.PROFILE,
-                ],
-                callback_urls=[
-                    "http://localhost:5173",
-                    "https://localhost:5173",
-                ],  # Will be updated after CloudFront
-            ),
-            prevent_user_existence_errors=True,
-        )
-
-        # Create User Pool Domain
-        self.user_pool_domain = cognito.UserPoolDomain(
-            self,
-            f"{self.fe_stack_name}-user-pool-domain",
-            user_pool=self.user_pool,
-            cognito_domain=cognito.CognitoDomainOptions(
-                domain_prefix=f"{self.props['stack_name_base']}-{Aws.ACCOUNT_ID}-{Aws.REGION}"
-            ),
-        )
 
     def create_website_bucket(self):
         """Create S3 bucket for static website hosting."""
@@ -177,13 +122,7 @@ class GenAIIDAgentCoreFrontendStack(NestedStack):
             )
         )
 
-        # Update Cognito callback URLs with CloudFront domain
-        frontend_url = f"https://{self.distribution.distribution_domain_name}"
-
-        # Update User Pool Client with CloudFront URL
-        cfn_user_pool_client = self.user_pool_client.node.default_child
-        cfn_user_pool_client.callback_ur_ls = [frontend_url]
-        cfn_user_pool_client.logout_ur_ls = [frontend_url]
+        # Note: Cognito callback URLs are configured in the backend stack
 
     def deploy_react_app(self):
         """Build and deploy the React application to S3."""
@@ -193,11 +132,11 @@ class GenAIIDAgentCoreFrontendStack(NestedStack):
         exports_config = {
             "Auth": {
                 "Cognito": {
-                    "userPoolClientId": self.user_pool_client.user_pool_client_id,
-                    "userPoolId": self.user_pool.user_pool_id,
+                    "userPoolClientId": self.user_pool_client_id,
+                    "userPoolId": self.user_pool_id,
                     "loginWith": {
                         "oauth": {
-                            "domain": f"{self.user_pool_domain.domain_name}.auth.{Aws.REGION}.amazoncognito.com",
+                            "domain": self.cognito_domain,
                             "scopes": ["openid", "email", "profile"],
                             "redirectSignIn": [
                                 f"https://{self.distribution.distribution_domain_name}"
@@ -212,7 +151,11 @@ class GenAIIDAgentCoreFrontendStack(NestedStack):
                         "phone": False,
                     },
                 }
-            }
+            },
+            "AgentCore": {
+                "runtimeArn": self.runtime_arn or "",
+                "region": Aws.REGION,
+            },
         }
 
         # Create aws-exports.json as a deployment source
@@ -261,20 +204,38 @@ class GenAIIDAgentCoreFrontendStack(NestedStack):
         CfnOutput(
             self,
             f"{self.fe_stack_name}-UserPoolId",
-            value=self.user_pool.user_pool_id,
+            value=self.user_pool_id,
             description="Cognito User Pool ID",
         )
 
         CfnOutput(
             self,
             f"{self.fe_stack_name}-UserPoolClientId",
-            value=self.user_pool_client.user_pool_client_id,
+            value=self.user_pool_client_id,
             description="Cognito User Pool Client ID",
         )
 
         CfnOutput(
             self,
             f"{self.fe_stack_name}-CognitoDomain",
-            value=f"{self.user_pool_domain.domain_name}.auth.{Aws.REGION}.amazoncognito.com",
+            value=self.cognito_domain,
             description="Cognito Domain",
+        )
+
+    def read_config_from_ssm(self):
+        """Read all configuration from SSM Parameter Store."""
+        # Read Cognito configuration
+        self.user_pool_id = ssm.StringParameter.value_for_string_parameter(
+            self, f"/{self.props['stack_name_base']}/cognito-user-pool-id"
+        )
+        self.user_pool_client_id = ssm.StringParameter.value_for_string_parameter(
+            self, f"/{self.props['stack_name_base']}/cognito-user-pool-client-id"
+        )
+        self.cognito_domain = ssm.StringParameter.value_for_string_parameter(
+            self, f"/{self.props['stack_name_base']}/cognito-domain"
+        )
+
+        # Read runtime ARN
+        self.runtime_arn = ssm.StringParameter.value_for_string_parameter(
+            self, f"/{self.props['stack_name_base']}/runtime-arn"
         )

@@ -4,11 +4,11 @@
 import aws_cdk as cdk
 from constructs import Construct
 
-from .backend_stack import BackendStack
-from .frontend_stack import GenAIIDAgentCoreFrontendStack
+from .backend_stack import GASPBackendStack
+from .frontend_stack import GASPFrontendStack
 
 
-class GenAIIDAgentCoreStack(cdk.Stack):
+class GenAIIDAgentCoreStarterPackStack(cdk.Stack):
     def __init__(
         self,
         scope: Construct,
@@ -20,15 +20,26 @@ class GenAIIDAgentCoreStack(cdk.Stack):
         description = "GenAIID AgentCore Starter Pack - Main Stack"
         super().__init__(scope, construct_id, description=description, **kwargs)
 
-        # Deploy frontend stack
-        self.frontend_stack = GenAIIDAgentCoreFrontendStack(
+        # Deploy backend stack first (creates Cognito + Runtime)
+        self.backend_stack = GASPBackendStack(
+            self,
+            f"{construct_id}-backend",
+            config=props,
+        )
+
+        # Deploy frontend stack (reads Cognito + Runtime from SSM)
+        self.frontend_stack = GASPFrontendStack(
             self,
             props,
         )
 
-        # Deploy backend stack (AgentCore runtime)
-        self.backend_stack = BackendStack(
+        # Add explicit dependency to ensure backend deploys before frontend
+        self.frontend_stack.add_dependency(self.backend_stack)
+
+        # Output the CloudFront URL for easy access
+        cdk.CfnOutput(
             self,
-            f"{construct_id}-backend",
-            config=props,
+            "FrontendUrl",
+            value=f"https://{self.frontend_stack.distribution.distribution_domain_name}",
+            description="Frontend Application URL",
         )
