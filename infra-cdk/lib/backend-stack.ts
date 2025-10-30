@@ -75,8 +75,9 @@ export class BackendStack extends cdk.NestedStack {
       userInvitation: {
         emailSubject: `Welcome to ${config.stack_name_base}!`,
         emailBody: `<p>Hello {username},</p>
-<p>Welcome to ${config.stack_name_base}! Your temporary password is: <strong>{####}</strong></p>
+<p>Welcome to ${config.stack_name_base}! Your username is <strong>{username}</strong> and your temporary password is: <strong>{####}</strong></p>
 <p>Please use this temporary password to log in and set your permanent password.</p>
+<p>The CloudFront URL to your application is stored as an output in the "${config.stack_name_base}" stack, and will be printed to your terminal once the deployment process completes.</p>
 <p>Thanks,</p>
 <p>AWS GENAIIC Team</p>`,
       },
