@@ -29,7 +29,8 @@ def fetch_access_token(client_id: str, client_secret: str, token_url: str) -> st
     response = requests.post(
         token_url,
         data=f"grant_type=client_credentials&client_id={client_id}&client_secret={client_secret}",
-        headers={'Content-Type': 'application/x-www-form-urlencoded'}
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+        timeout=30
     )
     
     if response.status_code != 200:
@@ -52,7 +53,7 @@ def list_tools(gateway_url: str, access_token: str) -> dict:
         "method": "tools/list"
     }
     
-    response = requests.post(gateway_url, headers=headers, json=payload)
+    response = requests.post(gateway_url, headers=headers, json=payload, timeout=30)
     
     if response.status_code != 200:
         print_msg(f"Gateway request failed: {response.status_code} - {response.text}", "error")
@@ -78,7 +79,7 @@ def call_tool(gateway_url: str, access_token: str, tool_name: str, arguments: di
         }
     }
     
-    response = requests.post(gateway_url, headers=headers, json=payload)
+    response = requests.post(gateway_url, headers=headers, json=payload, timeout=30)
     
     if response.status_code != 200:
         print_msg(f"Gateway request failed: {response.status_code} - {response.text}", "error")

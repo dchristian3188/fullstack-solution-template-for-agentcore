@@ -73,7 +73,7 @@ def get_gateway_access_token() -> str:
     print(f"[AUTH] Scopes: {data['scope']}")
 
     # Request access token
-    response = requests.post(token_url, headers=headers, data=data)
+    response = requests.post(token_url, headers=headers, data=data, timeout=30)
 
     if response.status_code != 200:
         print(f"[AUTH ERROR] Token request failed: {response.status_code}")

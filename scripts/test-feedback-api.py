@@ -37,9 +37,9 @@ def make_api_request(
     
     try:
         if method == "POST":
-            response = requests.post(url, headers=headers, json=data)
+            response = requests.post(url, headers=headers, json=data, timeout=30)
         elif method == "GET":
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=30)
         else:
             raise ValueError(f"Unsupported method: {method}")
         

@@ -35,7 +35,14 @@ def generate_aws_exports(stack_name):
             "--output", "json"
         ]
 
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            command, 
+            capture_output=True, 
+            text=True, 
+            check=True,
+            shell=False,  # Explicitly disable shell
+            timeout=60    # Add timeout for security
+        )
         stack_data = json.loads(result.stdout)
 
         # Extract stack info

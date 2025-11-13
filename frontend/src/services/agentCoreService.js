@@ -73,9 +73,17 @@ const parseStreamingChunk = (line, currentCompletion, updateCallback) => {
 // Generate a UUID-like string that meets AgentCore requirements (min 33 chars)
 const generateId = () => {
   const timestamp = Date.now().toString(36)
-  const random1 = Math.random().toString(36).substring(2)
-  const random2 = Math.random().toString(36).substring(2)
-  const random3 = Math.random().toString(36).substring(2)
+  
+  // Use cryptographically secure random number generation
+  const getSecureRandom = () => {
+    const array = new Uint32Array(1)
+    crypto.getRandomValues(array)
+    return array[0].toString(36)
+  }
+  
+  const random1 = getSecureRandom()
+  const random2 = getSecureRandom()
+  const random3 = getSecureRandom()
   return `${timestamp}-${random1}-${random2}-${random3}`
 }
 

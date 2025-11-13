@@ -84,6 +84,14 @@ def start_local_agent(memory_id: str, region: str) -> subprocess.Popen:
         print_msg(f"Agent file not found: {agent_path}", "error")
         sys.exit(1)
     
+    # Security validation: ensure agent_path is within the patterns directory
+    patterns_dir = Path(__file__).parent.parent / "patterns"
+    try:
+        agent_path.resolve().relative_to(patterns_dir.resolve())
+    except ValueError:
+        print_msg(f"Security error: Agent path outside patterns directory: {agent_path}", "error")
+        sys.exit(1)
+    
     print(f"Starting local agent at {agent_path}...")
     print(f"  Memory ID: {memory_id}")
     print(f"  Region: {region}\n")
