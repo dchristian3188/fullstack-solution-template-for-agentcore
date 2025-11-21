@@ -12,15 +12,13 @@ logger = logging.getLogger(__name__)
 class CodeInterpreterTools:
     """Tools for code execution via AgentCore Code Interpreter."""
 
-    def __init__(self, session: boto3.Session, region: str):
+    def __init__(self, region: str):
         """
         Initialize the code interpreter tools.
 
         Args:
-            session: Boto3 session for AWS operations
             region: AWS region for code interpreter
         """
-        self.session = session
         self.region = region
         self._code_client = None
 
@@ -56,9 +54,17 @@ class CodeInterpreterTools:
             code = f"# {description}\n{code}"
 
         client = self._get_code_interpreter_client()
-        response = client.invoke(
-            "executeCode", {"code": code, "language": "python", "clearContext": False}
-        )
+        try:
+            response = client.invoke(
+                "executeCode", {"code": code, "language": "python", "clearContext": False}
+            )
 
-        for event in response["stream"]:
-            return json.dumps(event["result"], indent=2)
+            results = []
+            for event in response["stream"]:
+                if "result" in event:
+                    results.append(event["result"])
+
+            return json.dumps(results, indent=2) if results else json.dumps({"error": "No results returned"}, indent=2)
+        except Exception as e:
+            logger.error(f"Code execution failed: {e}")
+            return json.dumps({"error": f"Code execution failed: {str(e)}"}, indent=2)

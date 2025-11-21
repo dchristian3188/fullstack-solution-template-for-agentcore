@@ -105,7 +105,7 @@ def create_basic_agent(user_id: str, session_id: str) -> Agent:
     # Initialize Code Interpreter tools with boto3 session
     region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
     session = boto3.Session(region_name=region)
-    code_tools = CodeInterpreterTools(session, region)
+    code_tools = CodeInterpreterTools(region)
 
     try:
         print("[AGENT] Starting agent creation with Gateway tools...")

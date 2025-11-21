@@ -197,7 +197,7 @@ export class BackendStack extends cdk.NestedStack {
           "bedrock-agentcore:StopCodeInterpreterSession",
           "bedrock-agentcore:InvokeCodeInterpreter",
         ],
-        resources: ["*"],
+        resources: [`arn:aws:bedrock-agentcore:${this.region}:aws:code-interpreter/*`],
       })
     )
 
