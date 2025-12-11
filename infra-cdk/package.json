@@ -1,8 +1,8 @@
 {
-  "name": "gasp-cdk",
+  "name": "fast-cdk",
   "version": "0.1.2",
   "bin": {
-    "gasp-cdk": "bin/gasp-cdk.js"
+    "fast-cdk": "bin/fast-cdk.js"
   },
   "scripts": {
     "build": "tsc",
