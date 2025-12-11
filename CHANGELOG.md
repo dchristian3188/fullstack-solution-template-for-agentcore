@@ -5,6 +5,18 @@ All notable changes to the Fullstack AgentCore Solution Template (FAST) will be 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2025-12-11
+
+### Changed
+- Renamed project from "GenAIID AgentCore Starter Pack (GASP)" to "Fullstack AgentCore Solution Template (FAST)"
+- Updated all documentation, code comments, and configuration files to use new naming
+- Updated repository URLs and package names to reflect new branding
+- Improved configuration management to require explicit config.yaml file
+
+### Fixed
+- Fixed Cognito domain prefix to use lowercase for compatibility
+- Removed hardcoded default values in configuration manager
+
 ## [0.1.2] - 2025-12-05
 
 ### Added
