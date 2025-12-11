@@ -151,7 +151,7 @@ Familiarize yourself with the project structure:
 
 # Reporting Bugs/Feature Requests
 
-We welcome you to use the [GitLab issue tracker](https://code.aws.dev/proserve/genaiid/reusable-assets/genaiid-agentcore-starter-pack/-/issues) to report bugs or suggest features for the FAST solution.
+We welcome you to use the [GitLab issue tracker](https://code.aws.dev/proserve/genaiid/reusable-assets/fullstack-agentcore-solution-template/-/issues) to report bugs or suggest features for the FAST solution.
 
 
 ---

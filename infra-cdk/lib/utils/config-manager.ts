@@ -23,7 +23,7 @@ export class ConfigManager {
     if (!fs.existsSync(configPath)) {
       // Return default configuration if file doesn't exist
       return {
-        stack_name_base: "genaiid-agentcore-starter-pack",
+        stack_name_base: "fullstack-agentcore-solution-template",
         admin_user_email: null,
         backend: {
           pattern: "strands-single-agent",
@@ -37,7 +37,7 @@ export class ConfigManager {
 
       // Validate required fields and provide defaults
       return {
-        stack_name_base: parsedConfig.stack_name_base || "genaiid-agentcore-starter-pack",
+        stack_name_base: parsedConfig.stack_name_base || "fullstack-agentcore-solution-template",
         admin_user_email: parsedConfig.admin_user_email || null,
         backend: {
           pattern: parsedConfig.backend?.pattern || "strands-single-agent",
