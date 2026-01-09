@@ -445,6 +445,5 @@ const gateway = new bedrockagentcore.CfnGateway(this, "AgentCoreGateway", {
 ## Related Documentation
 
 - [Deployment Guide](DEPLOYMENT.md) - How to deploy FAST infrastructure
-- [Development Best Practices](../docs/development-best-practices.md) - General development guidelines
 - [AWS AgentCore Gateway Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore-gateway.html) - Official AWS documentation
 - [AWS Gateway Lambda Target Documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-add-target-lambda.html) - Lambda target implementation details
