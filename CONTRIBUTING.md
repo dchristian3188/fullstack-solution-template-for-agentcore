@@ -1,5 +1,5 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-SPDX-License-Identifier: MIT-0
+SPDX-License-Identifier: Apache-2.0
 
 # Contributing to the Fullstack AgentCore Solution Template (FAST)
 

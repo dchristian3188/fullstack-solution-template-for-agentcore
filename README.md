@@ -138,4 +138,4 @@ Ultimately it is your responsibility as the developer of a full stack applicatio
 
 ## License
 
-This project is licensed under the MIT-0 License.
+This project is licensed under the Apache-2.0 License.
