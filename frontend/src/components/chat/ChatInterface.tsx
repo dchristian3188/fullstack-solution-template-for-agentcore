@@ -131,6 +131,15 @@ export default function ChatInterface() {
         (event: StreamEvent) => {
           switch (event.type) {
             case "text": {
+              // If text arrives after a tool segment, mark all pending tools as complete
+              const prev = segments[segments.length - 1];
+              if (prev && prev.type === "tool") {
+                for (const tc of toolCallMap.values()) {
+                  if (tc.status === "streaming" || tc.status === "executing") {
+                    tc.status = "complete";
+                  }
+                }
+              }
               // Append to last text segment, or create new one
               const last = segments[segments.length - 1];
               if (last && last.type === "text") {
