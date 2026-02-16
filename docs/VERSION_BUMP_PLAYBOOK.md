@@ -48,19 +48,11 @@ cd frontend && npm run build # Test frontend build
 ```bash
 git add .
 git commit -m "Bump version to X.Y.Z"
-git push origin develop
-
-# Merge develop into main
-git checkout main
-git merge develop
 git push origin main
 
 # Create and push tag
 git tag vX.Y.Z
 git push origin vX.Y.Z
-
-# Return to develop
-git checkout develop
 ```
 
 ## Notes
